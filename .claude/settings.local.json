@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /tmp/npm-bootstrap)",
+      "Bash(/Users/andrecardoso/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node -e ' *)",
+      "Bash(tar -xzf /tmp/npm.tgz -C /tmp/npm-bootstrap/)",
+      "Read(//tmp/npm-bootstrap/package/**)",
+      "Bash(/Users/andrecardoso/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node /tmp/npm-bootstrap/package/bin/npm-cli.js --version)",
+      "Bash(/Users/andrecardoso/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node /tmp/npm-bootstrap/package/bin/npm-cli.js install)",
+      "Bash(/Users/andrecardoso/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node /tmp/npm-bootstrap/package/bin/npm-cli.js install --legacy-peer-deps)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(chmod +x \"/Users/andrecardoso/Documents/Calude - Code/CRM - Maxxi Atacado/frontend/start-dev.sh\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:55661/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:55856/login)",
+      "Bash(git config *)",
+      "Bash(gh --version)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat: Maxi CRM — setup inicial completo *)"
+    ]
+  }
+}

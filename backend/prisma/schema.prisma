@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  SELLER
+}
+
+enum PipelineType {
+  DIRECT_SALE
+  CONSIGNMENT
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum InstanceStatus {
+  CONNECTED
+  DISCONNECTED
+  CONNECTING
+}
+
+model User {
+  id               String             @id @default(uuid())
+  name             String
+  email            String             @unique
+  passwordHash     String
+  role             Role               @default(SELLER)
+  isActive         Boolean            @default(true)
+  roundRobinIndex  Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  assignedLeads    Lead[]             @relation("AssignedLeads")
+  tasks            Task[]             @relation("AssignedTasks")
+  whatsappInstances WhatsappInstance[]
+  refreshTokens    RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model WhatsappInstance {
+  id           String         @id @default(uuid())
+  name         String
+  phoneNumber  String         @unique
+  status       InstanceStatus @default(DISCONNECTED)
+  qrCodeBase64 String?
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  messages     Message[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Pipeline {
+  id        String       @id @default(uuid())
+  name      String
+  type      PipelineType
+  stages    Stage[]
+  createdAt DateTime     @default(now())
+}
+
+model Stage {
+  id         String   @id @default(uuid())
+  name       String
+  position   Int
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  leads      Lead[]
+  createdAt  DateTime @default(now())
+
+  @@unique([pipelineId, position])
+}
+
+model Lead {
+  id             String    @id @default(uuid())
+  name           String
+  phone          String
+  email          String?
+  companyName    String?
+  source         String
+  currentStageId String
+  currentStage   Stage     @relation(fields: [currentStageId], references: [id])
+  assignedUserId String
+  assignedUser   User      @relation("AssignedLeads", fields: [assignedUserId], references: [id])
+  tags           LeadTag[]
+  tasks          Task[]
+  messages       Message[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  colorHex  String
+  leads     LeadTag[]
+  createdAt DateTime  @default(now())
+}
+
+model LeadTag {
+  leadId    String
+  tagId     String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([leadId, tagId])
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  title          String
+  description    String?
+  dueDate        DateTime
+  status         TaskStatus @default(PENDING)
+  leadId         String
+  lead           Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedUserId String
+  assignedUser   User       @relation("AssignedTasks", fields: [assignedUserId], references: [id])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Message {
+  id                 String           @id @default(uuid())
+  leadId             String
+  lead               Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  whatsappInstanceId String
+  whatsappInstance   WhatsappInstance @relation(fields: [whatsappInstanceId], references: [id])
+  direction          MessageDirection
+  body               String
+  mediaUrl           String?
+  mediaType          String?
+  isRead             Boolean          @default(false)
+  timestamp          DateTime         @default(now())
+}
+
+model AutomationTrigger {
+  id          String   @id @default(uuid())
+  name        String
+  eventType   String
+  conditions  Json
+  actions     Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}

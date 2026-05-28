@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "maxi-crm-frontend",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["/tmp/maxi-start.sh"],
+      "cwd": "frontend",
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}

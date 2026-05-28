@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #FAF9F5; /* Warm Luxury Ivory */
+  --color-emerald: #0A3A2F; /* Deep Royal Emerald */
+  --color-gold: #C5A059; /* Satin Gold */
+  --color-graphite: #2A2F2D; /* Soft Charcoal */
+  --color-surface: #FFFFFF;
+  --color-border: #EAE6DF; /* Warm gray border */
+  --color-muted: #8E8D86;
+}
+
+@layer base {
+  * {
+    border-color: #EAE6DF;
+  }
+
+  html {
+    color-scheme: light only;
+  }
+
+  body {
+    background-color: #FAF9F5;
+    color: #2A2F2D;
+    font-family: "Plus Jakarta Sans", Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 14px;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: "Playfair Display", Georgia, serif;
+    font-weight: 700;
+    color: #0A3A2F;
+  }
+}
+
+@layer components {
+  .card {
+    background-color: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0/0.06), 0 1px 2px -1px rgb(0 0 0/0.06);
+    border: 1px solid #EAE6DF;
+    transition: all 300ms;
+  }
+
+  .btn-primary {
+    background-color: #0A3A2F;
+    color: #fff;
+    border: 1px solid rgba(197,160,89,0.15);
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 200ms;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn-primary:hover { background-color: #0E4D3E; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-secondary {
+    background-color: #fff;
+    color: #2A2F2D;
+    border: 1px solid #EAE6DF;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 200ms;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn-secondary:hover { background-color: #F5F3EC; }
+
+  .btn-gold {
+    background-color: #C5A059;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    transition: all 200ms;
+    cursor: pointer;
+  }
+  .btn-gold:hover { background-color: #A3803B; }
+
+  .input-base {
+    width: 100%;
+    border: 1px solid #EAE6DF;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+    background-color: #fff;
+    color: #2A2F2D;
+    font-weight: 500;
+    transition: all 200ms;
+    outline: none;
+    font-family: "Plus Jakarta Sans", Inter, sans-serif;
+  }
+  .input-base:focus {
+    border-color: #0A3A2F;
+    box-shadow: 0 0 0 3px rgba(10,58,47,0.08);
+  }
+  .input-base::placeholder { color: rgba(142,141,134,0.7); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    transition: all 200ms;
+    cursor: pointer;
+    padding: 0;
+  }
+  .sidebar-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .sidebar-link.active { background: rgba(255,255,255,0.15); color: #fff; }
+
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: #EAE6DF transparent; }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #EAE6DF; border-radius: 4px; }
+}
+
+@keyframes scan-laser {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(150px); }
+  100% { transform: translateY(0); }
+}
+
+.scanner-laser {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  box-shadow: 0 0 8px var(--color-gold);
+  animation: scan-laser 2.5s ease-in-out infinite;
+}
