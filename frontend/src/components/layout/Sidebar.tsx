@@ -6,18 +6,18 @@ import { cn, getInitials } from '@lib/utils';
 import { useAuthStore } from '@store/authStore';
 import { useChatStore } from '@store/chatStore';
 import {
-  Gem, LayoutDashboard, Users, Kanban,
+  Gem, Users, GitFork,
   MessageSquare, CheckSquare, Smartphone,
-  BarChart3, Settings, LogOut,
+  BarChart3, Settings, LogOut, Zap,
 } from 'lucide-react';
 
 const links = [
-  { href: '/leads', label: 'Leads', icon: LayoutDashboard },
   { href: '/leads', label: 'Leads', icon: Users },
-  { href: '/kanban', label: 'Kanban', icon: Kanban },
-  { href: '/chat', label: 'Chat', icon: MessageSquare, badge: true },
+  { href: '/kanban', label: 'Funil de Vendas', icon: GitFork },
+  { href: '/chat', label: 'Conversas', icon: MessageSquare, badge: true },
   { href: '/tasks', label: 'Tarefas', icon: CheckSquare },
   { href: '/whatsapp', label: 'WhatsApp', icon: Smartphone },
+  { href: '/automations', label: 'Automações', icon: Zap },
   { href: '/analytics', label: 'Analytics', icon: BarChart3, adminOnly: true },
   { href: '/settings', label: 'Configurações', icon: Settings, adminOnly: true },
 ];
@@ -40,10 +40,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 flex flex-col items-center gap-1 px-3 py-2 overflow-y-auto scrollbar-thin">
         {links
-          .filter((l, i, arr) => {
-            if (l.adminOnly && !isAdmin) return false;
-            return arr.findIndex(x => x.href === l.href) === i;
-          })
+          .filter((l) => !(l.adminOnly && !isAdmin))
           .map(({ href, label, icon: Icon, badge }) => {
             const active = pathname === href || (href !== '/leads' && pathname.startsWith(href));
             return (

@@ -6,7 +6,7 @@ import Avatar from '@components/ui/Avatar';
 import Badge from '@components/ui/Badge';
 import { dbService, Lead, Pipeline } from '@lib/dbService';
 import { formatDate, formatPhone, timeAgo } from '@lib/utils';
-import { Plus, MessageSquare, Briefcase, Mail, Phone, UserPlus } from 'lucide-react';
+import { Plus, MessageSquare, UserPlus, ShoppingBag, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
@@ -110,14 +110,15 @@ export default function LeadsPage() {
       <div className="flex-1 overflow-auto p-6 scrollbar-thin">
         <div className="bg-white rounded-3xl border border-surface-border shadow-soft overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
+            <table className="w-full min-w-[1000px]">
               <thead>
                 <tr className="border-b border-surface-border bg-emerald-950/[0.01]">
                   <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-6 py-4">Lead</th>
                   <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-4 py-4">Telefone</th>
                   <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-4 py-4">Canal</th>
                   <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-4 py-4">Etapa</th>
-                  <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-4 py-4">Responsável</th>
+                  <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-4 py-4">Total Comprado</th>
+                  <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-4 py-4">Últ. Compra</th>
                   <th className="text-left text-xs font-semibold text-graphite-muted uppercase tracking-wider px-4 py-4">Criado</th>
                   <th className="px-4 py-4" />
                 </tr>
@@ -126,7 +127,7 @@ export default function LeadsPage() {
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 7 }).map((_, j) => (
+                      {Array.from({ length: 8 }).map((_, j) => (
                         <td key={j} className="px-4 py-4">
                           <div className="h-4 bg-surface-raised rounded-full animate-pulse" />
                         </td>
@@ -135,7 +136,7 @@ export default function LeadsPage() {
                   ))
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-graphite-muted text-sm font-medium">
+                    <td colSpan={8} className="text-center py-16 text-graphite-muted text-sm font-medium">
                       {search ? 'Nenhum lead encontrado para a busca' : 'Nenhum lead cadastrado ainda'}
                     </td>
                   </tr>
@@ -175,12 +176,24 @@ export default function LeadsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <Avatar name="Juliana Silva" size="sm" />
-                            <span className="text-sm text-graphite-light font-semibold">
-                              Juliana
+                          {lead.totalPurchased ? (
+                            <span className="flex items-center gap-1 text-sm font-bold text-gold-dark">
+                              <ShoppingBag className="w-3.5 h-3.5" />
+                              {lead.totalPurchased.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </span>
-                          </div>
+                          ) : (
+                            <span className="text-xs text-graphite-muted">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          {lead.lastPurchaseDate ? (
+                            <span className="flex items-center gap-1 text-xs text-graphite-light font-medium">
+                              <Calendar className="w-3 h-3 text-graphite-muted" />
+                              {new Date(lead.lastPurchaseDate).toLocaleDateString('pt-BR')}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-graphite-muted">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-4">
                           <span className="text-xs text-graphite-muted font-medium">{timeAgo(lead.createdAt)}</span>

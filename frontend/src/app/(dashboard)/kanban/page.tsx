@@ -11,10 +11,9 @@ import { CSS } from '@dnd-kit/utilities';
 import Header from '@components/layout/Header';
 import Avatar from '@components/ui/Avatar';
 import { useKanbanStore } from '@store/kanbanStore';
-import { dbService, Lead, Task } from '@lib/dbService';
+import { dbService, Lead, Task, Pipeline } from '@lib/dbService';
 import { timeAgo, cn } from '@lib/utils';
-import { MessageSquare, CheckSquare, ArrowRightLeft, AlertCircle } from 'lucide-react';
-import type { PipelineType } from '@/types/pipeline';
+import { MessageSquare, CheckSquare, AlertCircle, Plus, X, Trash2, GitFork } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const formatCurrency = (val?: number) => {
@@ -42,7 +41,7 @@ function KanbanCard({
       {...attributes}
       {...listeners}
       className={cn(
-        'bg-white border rounded-2xl p-4 cursor-grab active:cursor-grabbing transition-all duration-300 space-y-3 border-surface-border relative overflow-hidden border-l-4 hover:border-l-gold hover:border-r-gold/20 hover:border-y-gold/20 hover:shadow-[0_8px_30px_rgba(197,160,89,0.05)]',
+        'bg-white border rounded-2xl p-4 cursor-grab active:cursor-grabbing transition-all duration-300 space-y-3 border-surface-border relative overflow-hidden border-l-4 hover:border-l-gold hover:shadow-soft',
         hasOverdueTask ? 'border-red-300 ring-2 ring-red-500/5' : 'border-l-gold/40'
       )}
     >
@@ -84,6 +83,13 @@ function KanbanCard({
               }}
             />
           </div>
+        </div>
+      ) : null}
+
+      {/* Last purchase */}
+      {lead.totalPurchased ? (
+        <div className="text-[10px] text-graphite-muted font-medium">
+          💰 Total comprado: <span className="text-emerald-950 font-bold">{formatCurrency(lead.totalPurchased)}</span>
         </div>
       ) : null}
 
@@ -163,24 +169,147 @@ function KanbanColumn({
   );
 }
 
+// Modal to create a new pipeline
+function NewFunnelModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState<'DIRECT_SALE' | 'CONSIGNMENT'>('DIRECT_SALE');
+  const [stages, setStages] = useState(['Lead', 'Contato', 'Proposta', 'Fechado']);
+  const [newStage, setNewStage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const addStage = () => {
+    if (!newStage.trim()) return;
+    setStages((s) => [...s, newStage.trim()]);
+    setNewStage('');
+  };
+
+  const removeStage = (i: number) => {
+    if (stages.length <= 2) { toast.error('Mínimo de 2 etapas'); return; }
+    setStages((s) => s.filter((_, idx) => idx !== i));
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { toast.error('Nome do funil é obrigatório'); return; }
+    setLoading(true);
+    try {
+      await dbService.createPipeline({ name: name.trim(), type, stages });
+      toast.success(`Funil "${name}" criado com sucesso!`);
+      onCreated();
+      onClose();
+    } catch {
+      toast.error('Erro ao criar funil');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-modal w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GitFork className="w-5 h-5 text-gold" />
+            <h2 className="font-serif text-lg font-bold text-graphite">Novo Funil de Vendas</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface-raised transition-colors text-graphite-muted">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-graphite">Nome do Funil *</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Marketplace, Feira, Loja Física..."
+              className="w-full px-3 py-2 border border-surface-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-950/10 focus:border-emerald-950"
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-graphite">Tipo</label>
+            <div className="flex gap-2">
+              {([['DIRECT_SALE', 'Venda Direta'], ['CONSIGNMENT', 'Consignação']] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setType(val)}
+                  className={cn(
+                    'flex-1 py-2 rounded-xl text-xs font-semibold border transition-all',
+                    type === val ? 'bg-emerald-950 text-white border-emerald-950' : 'border-surface-border text-graphite-muted hover:border-emerald-950/30'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-graphite">Etapas do Funil</label>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {stages.map((stage, i) => (
+                <div key={i} className="flex items-center gap-2 bg-surface-raised/50 px-3 py-1.5 rounded-xl">
+                  <span className="text-[10px] font-bold text-emerald-950/40 w-4">{i + 1}</span>
+                  <span className="text-xs text-graphite flex-1">{stage}</span>
+                  <button type="button" onClick={() => removeStage(i)} className="text-graphite-muted hover:text-red-500 transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={newStage}
+                onChange={(e) => setNewStage(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addStage(); } }}
+                placeholder="Nome da etapa..."
+                className="flex-1 px-3 py-1.5 border border-surface-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-950/10"
+              />
+              <button type="button" onClick={addStage} className="px-3 py-1.5 bg-surface-raised border border-surface-border rounded-xl text-xs font-semibold hover:bg-emerald-950/5 transition-colors">
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 btn-ghost text-sm py-2">Cancelar</button>
+            <button type="submit" disabled={loading} className="flex-1 btn-primary text-sm py-2 font-bold">
+              {loading ? 'Criando...' : 'Criar Funil'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function KanbanPage() {
   const {
-    activePipelineType, pipelines, leadsByStage, isLoading,
-    setPipelineType, setPipelines, setLeadsByStage, setLoading, moveLeadLocally
+    pipelines, leadsByStage, isLoading,
+    setPipelines, setLeadsByStage, setLoading, moveLeadLocally
   } = useKanbanStore();
   const [draggingLead, setDraggingLead] = useState<Lead | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [activePipelineId, setActivePipelineId] = useState<string>('');
+  const [showNewFunnel, setShowNewFunnel] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  const activePipeline = pipelines.find((p) => p.type === activePipelineType);
-  const isConsignment = activePipelineType === 'CONSIGNMENT';
+  const activePipeline = pipelines.find((p) => p.id === activePipelineId) ?? pipelines[0];
+  const isConsignment = activePipeline?.type === 'CONSIGNMENT';
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const pipelinesData = await dbService.getPipelines();
       setPipelines(pipelinesData);
+      if (!activePipelineId && pipelinesData[0]) {
+        setActivePipelineId(pipelinesData[0].id);
+      }
 
       const leads = await dbService.getLeads();
       const byStage: Record<string, Lead[]> = {};
@@ -194,11 +323,11 @@ export default function KanbanPage() {
       setTasks(tasksData);
     } catch (e) {
       console.error(e);
-      toast.error('Erro ao carregar dados do Kanban');
+      toast.error('Erro ao carregar dados do Funil');
     } finally {
       setLoading(false);
     }
-  }, [setLeadsByStage, setPipelines, setLoading]);
+  }, [setLeadsByStage, setPipelines, setLoading, activePipelineId]);
 
   useEffect(() => {
     load();
@@ -239,33 +368,72 @@ export default function KanbanPage() {
     }
   };
 
-  const togglePipeline = (type: PipelineType) => setPipelineType(type);
+  const handleDeletePipeline = async (pipeline: Pipeline) => {
+    if (!confirm(`Excluir o funil "${pipeline.name}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await dbService.deletePipeline(pipeline.id);
+      toast.success(`Funil "${pipeline.name}" excluído`);
+      await load();
+    } catch {
+      toast.error('Erro ao excluir funil');
+    }
+  };
+
+  const totalLeadsInPipeline = activePipeline?.stages.reduce(
+    (sum, s) => sum + (leadsByStage[s.id]?.length ?? 0), 0
+  ) ?? 0;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header
-        title="Pipeline de Joias"
-        subtitle={activePipeline?.name}
+        title="Funil de Vendas"
+        subtitle={`${totalLeadsInPipeline} leads em ${activePipeline?.name ?? '...'}`}
         actions={
-          <div className="flex items-center bg-surface-raised border border-surface-border/50 rounded-full p-1 gap-1">
-            {(['DIRECT_SALE', 'CONSIGNMENT'] as PipelineType[]).map((type) => (
-              <button
-                key={type}
-                onClick={() => togglePipeline(type)}
-                className={cn(
-                  'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs transition-all duration-300',
-                  activePipelineType === type
-                    ? 'bg-emerald-950 text-white font-bold shadow-soft border border-gold/30'
-                    : 'text-graphite-muted hover:text-emerald-950 font-semibold hover:bg-emerald-950/5'
-                )}
-              >
-                <ArrowRightLeft className={cn("w-3 h-3", activePipelineType === type ? "text-gold animate-pulse" : "text-gold/80")} />
-                {type === 'DIRECT_SALE' ? 'Venda Direta' : 'Consignação'}
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={() => setShowNewFunnel(true)}
+            className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Novo Funil
+          </button>
         }
       />
+
+      {/* Pipeline tabs */}
+      <div className="px-6 pt-4 flex items-center gap-2 flex-wrap border-b border-surface-border/40 pb-0">
+        {pipelines.map((pipeline) => (
+          <div key={pipeline.id} className="relative group">
+            <button
+              onClick={() => setActivePipelineId(pipeline.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-2 text-xs font-semibold transition-all duration-200 border-b-2 -mb-px rounded-t-lg',
+                activePipeline?.id === pipeline.id
+                  ? 'border-b-gold text-emerald-950 bg-surface-raised/50'
+                  : 'border-b-transparent text-graphite-muted hover:text-emerald-950 hover:bg-surface-raised/30'
+              )}
+            >
+              <GitFork className="w-3 h-3" />
+              {pipeline.name}
+              <span className={cn(
+                'text-[9px] font-bold px-1.5 py-0.5 rounded-full ml-1',
+                pipeline.type === 'CONSIGNMENT' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+              )}>
+                {pipeline.type === 'CONSIGNMENT' ? 'Consig.' : 'Venda'}
+              </span>
+            </button>
+            {/* Delete button — only on hover, not for default pipelines */}
+            {!['p1', 'p2'].includes(pipeline.id) && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeletePipeline(pipeline); }}
+                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center z-10"
+                title="Excluir funil"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
         {isLoading ? (
@@ -292,6 +460,12 @@ export default function KanbanPage() {
                   isConsignment={isConsignment}
                 />
               ))}
+              {(!activePipeline?.stages || activePipeline.stages.length === 0) && (
+                <div className="flex flex-col items-center justify-center flex-1 text-graphite-muted gap-2">
+                  <GitFork className="w-10 h-10 opacity-20" />
+                  <p className="text-sm font-semibold">Nenhuma etapa neste funil</p>
+                </div>
+              )}
             </div>
             <DragOverlay>
               {draggingLead && (
@@ -303,6 +477,13 @@ export default function KanbanPage() {
           </DndContext>
         )}
       </div>
+
+      {showNewFunnel && (
+        <NewFunnelModal
+          onClose={() => setShowNewFunnel(false)}
+          onCreated={load}
+        />
+      )}
     </div>
   );
 }

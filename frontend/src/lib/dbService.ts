@@ -30,6 +30,14 @@ export interface Tag {
   colorHex: string;
 }
 
+export interface PurchaseRecord {
+  id: string;
+  date: string;
+  value: number;
+  products: string[];
+  notes?: string;
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -44,6 +52,9 @@ export interface Lead {
   tags: Tag[];
   consignmentValue?: number; // Total jewelry value in field
   settledValue?: number;     // Total resolved/billed
+  lastPurchaseDate?: string;
+  totalPurchased?: number;
+  purchaseHistory?: PurchaseRecord[];
   _count: { messages: number };
 }
 
@@ -180,6 +191,12 @@ const DEFAULT_LEADS: Lead[] = [
     tags: [DEFAULT_TAGS[0], DEFAULT_TAGS[1]],
     consignmentValue: 18500,
     settledValue: 3200,
+    lastPurchaseDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    totalPurchased: 6400,
+    purchaseHistory: [
+      { id: 'pr1', date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), value: 3200, products: ['Pulseiras folheadas', 'Brincos Gold'], notes: 'Primeira maleta' },
+      { id: 'pr2', date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), value: 3200, products: ['Colares Brushed Gold', 'Anéis semijoias'], notes: 'Segunda maleta' },
+    ],
     _count: { messages: 3 },
   },
   {
@@ -196,6 +213,13 @@ const DEFAULT_LEADS: Lead[] = [
     tags: [DEFAULT_TAGS[0]],
     consignmentValue: 24000,
     settledValue: 19800,
+    lastPurchaseDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    totalPurchased: 19800,
+    purchaseHistory: [
+      { id: 'pr3', date: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(), value: 8500, products: ['Coleção Brushed Gold', 'Pingentes'], notes: 'Maleta 1 — acerto parcial' },
+      { id: 'pr4', date: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(), value: 7300, products: ['Brincos pendentes', 'Colares rosé'], notes: 'Maleta 2 — acerto completo' },
+      { id: 'pr5', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), value: 4000, products: ['Pulseiras folheadas premium'], notes: 'Maleta 3 — parcial' },
+    ],
     _count: { messages: 1 },
   },
   {
@@ -565,10 +589,17 @@ export const dbService = {
 
   async markAsRead(leadId: string): Promise<void> {
     const messages = getLS<Message[]>('messages', DEFAULT_MESSAGES);
-    const updated = messages.map((m) => m.leadId === leadId && m.direction === 'INBOUND' ? { ...m, isRead: true } : m);
+    // Only update + notify if there are actually unread messages — prevents infinite loop
+    const hasUnread = messages.some(
+      (m) => m.leadId === leadId && m.direction === 'INBOUND' && !m.isRead
+    );
+    if (!hasUnread) return;
+    const updated = messages.map((m) =>
+      m.leadId === leadId && m.direction === 'INBOUND' ? { ...m, isRead: true } : m
+    );
     setLS('messages', updated);
+    // Only notify conversations (sidebar badge) — NOT messages_ to avoid triggering subscribeMessages loop
     notify('conversations');
-    notify('messages_' + leadId);
   },
 
   // WhatsApp Settings
@@ -624,6 +655,106 @@ export const dbService = {
     }, 4000);
 
     return qrMock;
+  },
+
+  // Purchase History
+  async getPurchaseHistory(leadId: string): Promise<PurchaseRecord[]> {
+    const leads = getLS<Lead[]>('leads', DEFAULT_LEADS);
+    const lead = leads.find((l) => l.id === leadId);
+    return lead?.purchaseHistory ?? [];
+  },
+
+  async addPurchaseRecord(leadId: string, record: Omit<PurchaseRecord, 'id'>): Promise<PurchaseRecord> {
+    const leads = getLS<Lead[]>('leads', DEFAULT_LEADS);
+    const newRecord: PurchaseRecord = { id: 'pr_' + Math.random().toString(36).substr(2, 9), ...record };
+    const updated = leads.map((l) => {
+      if (l.id !== leadId) return l;
+      const history = [...(l.purchaseHistory ?? []), newRecord];
+      const total = history.reduce((s, r) => s + r.value, 0);
+      return { ...l, purchaseHistory: history, totalPurchased: total, lastPurchaseDate: newRecord.date, updatedAt: new Date().toISOString() };
+    });
+    setLS('leads', updated);
+    notify('leads');
+    return newRecord;
+  },
+
+  // AI: Analyze chat messages for orders and extract purchase info
+  async analyzeChatForOrders(leadId: string): Promise<{ found: boolean; records: PurchaseRecord[] }> {
+    const messages = getLS<Message[]>('messages', DEFAULT_MESSAGES);
+    const leads = getLS<Lead[]>('leads', DEFAULT_LEADS);
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return { found: false, records: [] };
+
+    const inbound = messages.filter((m) => m.leadId === leadId && m.direction === 'INBOUND');
+
+    // Pattern matching for orders: look for R$, "pedido", "total", "vendi", "acerto"
+    const orderRegex = /(?:pedido|total|vendi|faturei|acerto|compra|valor)[^.]*?R\$?\s*([\d.,]+)/i;
+    const valueRegex = /R\$\s*([\d.,]+)/;
+    const productRegex = /(?:pulseira|brinco|colar|anel|bracelete|corrente|pingente|semi|gold|brushed|folheado)[^,.]*/gi;
+
+    const extractedRecords: PurchaseRecord[] = [];
+
+    for (const msg of inbound) {
+      if (orderRegex.test(msg.body) || valueRegex.test(msg.body)) {
+        const valueMatch = msg.body.match(/R\$?\s*([\d.,]+)/);
+        if (!valueMatch) continue;
+        const rawValue = valueMatch[1].replace(/\./g, '').replace(',', '.');
+        const value = parseFloat(rawValue);
+        if (isNaN(value) || value <= 0) continue;
+
+        const products = (msg.body.match(productRegex) ?? []).map((p: string) => p.trim());
+        extractedRecords.push({
+          id: 'pr_ai_' + Math.random().toString(36).substr(2, 9),
+          date: msg.timestamp,
+          value,
+          products: products.length > 0 ? products : ['Produtos variados'],
+          notes: `Extraído automaticamente: "${msg.body.substring(0, 80)}..."`,
+        });
+      }
+    }
+
+    if (extractedRecords.length === 0) return { found: false, records: [] };
+
+    // Save extracted records to lead
+    const existing = lead.purchaseHistory ?? [];
+    const allRecords = [...existing, ...extractedRecords];
+    const total = allRecords.reduce((s, r) => s + r.value, 0);
+    const lastDate = allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date;
+
+    const updatedLeads = leads.map((l) =>
+      l.id === leadId
+        ? { ...l, purchaseHistory: allRecords, totalPurchased: total, lastPurchaseDate: lastDate, updatedAt: new Date().toISOString() }
+        : l
+    );
+    setLS('leads', updatedLeads);
+    notify('leads');
+
+    return { found: true, records: extractedRecords };
+  },
+
+  // Pipeline Management
+  async createPipeline(data: { name: string; type: 'DIRECT_SALE' | 'CONSIGNMENT'; stages: string[] }): Promise<Pipeline> {
+    const pipelines = getLS<Pipeline[]>('pipelines', DEFAULT_PIPELINES);
+    const id = 'p_' + Math.random().toString(36).substr(2, 9);
+    const newPipeline: Pipeline = {
+      id,
+      name: data.name,
+      type: data.type,
+      createdAt: new Date().toISOString(),
+      stages: data.stages.map((name, i) => ({
+        id: `${id}_s${i}`,
+        name,
+        position: i,
+        pipelineId: id,
+      })),
+    };
+    setLS('pipelines', [...pipelines, newPipeline]);
+    return newPipeline;
+  },
+
+  async deletePipeline(pipelineId: string): Promise<void> {
+    const pipelines = getLS<Pipeline[]>('pipelines', DEFAULT_PIPELINES);
+    setLS('pipelines', pipelines.filter((p) => p.id !== pipelineId));
   },
 
   // Subscriptions

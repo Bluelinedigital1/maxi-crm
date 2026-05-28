@@ -4,11 +4,12 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Header from '@components/layout/Header';
 import Avatar from '@components/ui/Avatar';
-import { dbService, Message, WhatsappInstance, Lead, Task, Tag } from '@lib/dbService';
+import { dbService, Message, WhatsappInstance, Lead, Task, Tag, PurchaseRecord } from '@lib/dbService';
 import { cn, timeAgo, formatPhone } from '@lib/utils';
 import {
   Send, Search, Sparkles, Plus, CheckSquare, Square,
-  Tag as TagIcon, X, Calendar, DollarSign, Briefcase, Info, AlertCircle, Check, CheckCheck
+  Tag as TagIcon, X, Calendar, DollarSign, Briefcase, Info, AlertCircle, CheckCheck,
+  Bot, ShoppingBag, History,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { triggerMockSocketMessage } from '@lib/socket';
@@ -44,6 +45,10 @@ export default function ChatPage() {
   const [settledVal, setSettledVal] = useState<number>(0);
   const [updatingConsignment, setUpdatingConsignment] = useState(false);
 
+  // Purchase history & AI analyzer
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseRecord[]>([]);
+  const [analyzingAI, setAnalyzingAI] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
@@ -73,6 +78,9 @@ export default function ChatPage() {
       const allTasks = await dbService.getTasks();
       const currentTasks = allTasks.filter((t) => t.leadId === leadId);
       setLeadTasks(currentTasks);
+
+      const history = await dbService.getPurchaseHistory(leadId);
+      setPurchaseHistory(history);
     } catch (e) {
       console.error(e);
     }
@@ -318,6 +326,26 @@ export default function ChatPage() {
       toast.success('Tarefa concluída');
     } catch {
       toast.error('Erro ao concluir tarefa');
+    }
+  };
+
+  // AI analyzer
+  const handleAnalyzeChat = async () => {
+    if (!activeLeadId) return;
+    setAnalyzingAI(true);
+    try {
+      const result = await dbService.analyzeChatForOrders(activeLeadId);
+      if (result.found) {
+        toast.success(`✨ IA encontrou ${result.records.length} pedido(s) nas mensagens!`);
+        const history = await dbService.getPurchaseHistory(activeLeadId);
+        setPurchaseHistory(history);
+      } else {
+        toast('Nenhum pedido identificado nas mensagens ainda.', { icon: '🤖' });
+      }
+    } catch {
+      toast.error('Erro na análise da IA');
+    } finally {
+      setAnalyzingAI(false);
     }
   };
 
@@ -800,6 +828,62 @@ export default function ChatPage() {
                 )}
               </div>
             </div>
+            {/* Purchase History Section */}
+            <div className="space-y-3.5 border-t border-surface-border pt-4 pb-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-2xs font-bold text-graphite uppercase tracking-wider flex items-center gap-1.5">
+                  <History className="w-3.5 h-3.5 text-gold" />
+                  Histórico de Compras
+                </h4>
+                <button
+                  onClick={handleAnalyzeChat}
+                  disabled={analyzingAI}
+                  className="flex items-center gap-1 text-[9px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-2 py-1 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-50"
+                  title="Analisar mensagens com IA"
+                >
+                  <Bot className="w-3 h-3" />
+                  {analyzingAI ? 'Analisando...' : 'Analisar com IA'}
+                </button>
+              </div>
+
+              {purchaseHistory.length === 0 ? (
+                <div className="text-center py-4">
+                  <ShoppingBag className="w-6 h-6 text-graphite-muted/30 mx-auto mb-1" />
+                  <p className="text-[10px] text-graphite-muted italic">
+                    Nenhum pedido registrado.<br />Use "Analisar com IA" para extrair das mensagens.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-52 overflow-y-auto scrollbar-thin">
+                  <p className="text-[10px] font-bold text-emerald-950">
+                    Total: {purchaseHistory.reduce((s, r) => s + r.value, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                  {[...purchaseHistory]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((record) => (
+                    <div key={record.id} className="bg-surface-raised/50 border border-surface-border rounded-xl p-2.5 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-graphite-muted font-medium">
+                          {new Date(record.date).toLocaleDateString('pt-BR')}
+                        </span>
+                        <span className="text-[10px] font-bold text-gold-dark">
+                          {record.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      </div>
+                      {record.products.length > 0 && (
+                        <p className="text-[9px] text-graphite-muted leading-relaxed">
+                          {record.products.join(', ')}
+                        </p>
+                      )}
+                      {record.notes && (
+                        <p className="text-[9px] text-graphite-muted/70 italic truncate">{record.notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
         )}
       </div>
