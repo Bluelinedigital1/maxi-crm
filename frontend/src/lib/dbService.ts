@@ -14,6 +14,7 @@ export interface Pipeline {
   name: string;
   type: 'DIRECT_SALE' | 'CONSIGNMENT';
   stages: Stage[];
+  createdAt: string;
 }
 
 export interface Stage {
@@ -88,6 +89,7 @@ const DEFAULT_PIPELINES: Pipeline[] = [
     id: 'p1',
     name: 'Venda Direta',
     type: 'DIRECT_SALE',
+    createdAt: '2024-01-01T00:00:00.000Z',
     stages: [
       { id: 's1', name: 'Lead', position: 0, pipelineId: 'p1' },
       { id: 's2', name: 'Contato', position: 1, pipelineId: 'p1' },
@@ -99,6 +101,7 @@ const DEFAULT_PIPELINES: Pipeline[] = [
     id: 'p2',
     name: 'Consignação',
     type: 'CONSIGNMENT',
+    createdAt: '2024-01-01T00:00:00.000Z',
     stages: [
       { id: 's5', name: 'Análise', position: 0, pipelineId: 'p2' },
       { id: 's6', name: 'Maleta Alocada', position: 1, pipelineId: 'p2' },
