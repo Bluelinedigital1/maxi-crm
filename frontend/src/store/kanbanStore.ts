@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Lead } from '@/types/lead';
+import type { Lead } from '@lib/dbService';
 import type { Pipeline, PipelineType } from '@/types/pipeline';
 
 interface KanbanState {
